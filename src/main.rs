@@ -138,9 +138,8 @@ pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
                     if ws_result.end_of_message {
                         let _s = std::str::from_utf8(&output_json[..write_cursor])?;
-                        //                        println!("{}", s);
+                        println!("{}", _s);
                         //println!("Text received of {} characters received", s.len());
-
                         write_cursor = 0;
                     }
                 }
@@ -149,7 +148,7 @@ pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         }
     }
 }
-
+/*
 struct FrameReader<'a, TStream>
 where
     TStream: Read,
@@ -230,3 +229,4 @@ where
         }
     }
 }
+*/
