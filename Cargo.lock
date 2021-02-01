@@ -410,17 +410,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
-name = "streamtest"
-version = "0.1.0"
-dependencies = [
- "embedded-websocket",
- "native-tls",
- "rand 0.7.3",
- "rand_core 0.6.1",
- "thiserror",
-]
-
-[[package]]
 name = "syn"
 version = "1.0.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -522,3 +511,14 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
+
+[[package]]
+name = "wstest"
+version = "0.1.0"
+dependencies = [
+ "embedded-websocket",
+ "native-tls",
+ "rand 0.7.3",
+ "rand_core 0.6.1",
+ "thiserror",
+]

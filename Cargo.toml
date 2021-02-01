@@ -1,5 +1,5 @@
 [package]
-name = "streamtest"
+name = "wstest"
 version = "0.1.0"
 authors = ["David Haig <david@ninjametal.com>"]
 edition = "2018"

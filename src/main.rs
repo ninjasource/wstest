@@ -9,7 +9,7 @@ use thiserror::Error;
 use ws::{WebSocketClient, WebSocketReceiveMessageType, WebSocketSendMessageType};
 
 extern crate native_tls;
-use native_tls::TlsConnector;
+use native_tls::{TlsConnector, TlsStream};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -148,44 +148,35 @@ pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         }
     }
 }
+
 /*
-struct FrameReader<'a, TStream>
-where
-    TStream: Read,
-{
+struct FrameReader {
     write_cursor: usize,
     read_cursor: usize,
-    stream: &'a mut TStream,
-    ws_client: &'a mut WebSocketClient<ThreadRng>,
-    buf: &'a mut [u8],
-    frame_payload: &'a mut [u8],
+    stream: TlsStream<TcpStream>,
+    ws_client: WebSocketClient<ThreadRng>,
+    buf: [u8; 4096],
+    frame_payload: Vec<u8>,
 }
 
-impl<'a, TStream> FrameReader<'a, TStream>
-where
-    TStream: Read,
-{
+impl FrameReader {
     fn new(
-        stream: &'a mut TStream,
-        ws_client: &'a mut ws::WebSocketClient<ThreadRng>,
-        buf: &'a mut [u8],
-        frame_payload: &'a mut [u8],
+        stream: TlsStream<TcpStream>,
+        ws_client: WebSocketClient<ThreadRng>,
+        frame_payload_len: usize,
     ) -> Self {
         Self {
             write_cursor: 0,
             read_cursor: 0,
             stream,
             ws_client,
-            buf,
-            frame_payload,
+            buf: [0; 4096],
+            frame_payload: vec![0; frame_payload_len],
         }
     }
 }
 
-impl<'a, TStream> Iterator for FrameReader<'a, TStream>
-where
-    TStream: Read,
-{
+impl<'a> Iterator for FrameReader {
     type Item = &'a [u8];
 
     fn next(&mut self) -> Option<&'a [u8]> {
