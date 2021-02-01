@@ -1,0 +1,12 @@
+[package]
+name = "streamtest"
+version = "0.1.0"
+authors = ["David Haig <david@ninjametal.com>"]
+edition = "2018"
+
+[dependencies]
+embedded-websocket = "0.3.2"
+rand = "0.7.3"
+thiserror = "1.0.19"
+native-tls = "0.2"
+rand_core = "0.6.1"
