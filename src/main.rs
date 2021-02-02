@@ -1,11 +1,13 @@
-use framer::{Framer, FramerError};
-use embedded_websocket::{WebSocketCloseStatusCode, WebSocketOptions, WebSocketSendMessageType};
+use embedded_websocket::{
+    framer::{Framer, FramerError},
+    WebSocketCloseStatusCode, WebSocketOptions, WebSocketSendMessageType,
+};
 use std::net::TcpStream;
 use thiserror::Error;
 
 extern crate native_tls;
 use native_tls::TlsConnector;
-mod framer;
+//mod framer;
 
 #[derive(Error, Debug)]
 pub enum MainError {

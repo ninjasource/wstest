@@ -60,9 +60,9 @@ checksum = "ea221b5284a47e40033bf9b66f35f984ec0ea2931eb03505246cd27a963f981b"
 
 [[package]]
 name = "embedded-websocket"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97d5daafaae36e87975f18bc845f9c1fb0303700fed3beca94273f484b381889"
+checksum = "839ce78d68543a92177f1ab163dd9087b55878d66d2c4e747c2be82482f9f910"
 dependencies = [
  "byteorder",
  "heapless",
