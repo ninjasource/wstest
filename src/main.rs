@@ -60,7 +60,6 @@ pub fn main() -> Result<(), MainError> {
         r.store(false, Ordering::SeqCst);
     })
     .expect("Error setting Ctrl-C handler");
-    let mut is_close_sent = false;
 
     //    let url = Url::parse("wss://ws-feed-public.sandbox.pro.coinbase.com").unwrap();
     //    let url = Url::parse("wss://ws-feed.pro.coinbase.com").unwrap();
@@ -106,10 +105,10 @@ pub fn main() -> Result<(), MainError> {
         println!("{}", s);
 
         // user pressed CTRL-C (initiate a close handshake)
-        if !running.load(Ordering::SeqCst) && !is_close_sent {
+        if !running.load(Ordering::SeqCst) {
+            running.store(true, Ordering::SeqCst); // ensure that we don't run this again
             websocket.close(WebSocketCloseStatusCode::NormalClosure, None)?;
             println!("Close handshake sent");
-            is_close_sent = true;
         }
     }
 
