@@ -65,7 +65,6 @@ pub fn main() -> Result<(), MainError> {
     //    let url = Url::parse("wss://ws-feed.pro.coinbase.com").unwrap();
     let address = "ws-feed.pro.coinbase.com:443";
     println!("Connecting to: {}", address);
-    println!("Connected.");
 
     let connector = TlsConnector::new().unwrap();
 
@@ -73,6 +72,7 @@ pub fn main() -> Result<(), MainError> {
     let mut stream = connector
         .connect("ws-feed.pro.coinbase.com", stream)
         .unwrap();
+    println!("Connected. Initiating websocket opening handshake.");
 
     let mut read_buf: [u8; 4096] = [0; 4096];
     let mut write_buf: [u8; 4096] = [0; 4096];
@@ -93,6 +93,7 @@ pub fn main() -> Result<(), MainError> {
 
     let mut websocket = Framer::new(&mut read_buf, &mut write_buf, &mut ws_client, &mut stream);
     websocket.connect(&websocket_options)?;
+    println!("Websocket open.");
 
     websocket.write(
         WebSocketSendMessageType::Text,
