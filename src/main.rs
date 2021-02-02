@@ -7,7 +7,10 @@ use thiserror::Error;
 
 extern crate native_tls;
 use native_tls::TlsConnector;
-//mod framer;
+
+extern crate ctrlc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 #[derive(Error, Debug)]
 pub enum MainError {
@@ -50,9 +53,17 @@ const TEST_SUBSCRIPTION: &'static str = r#"
 "#;
 
 pub fn main() -> Result<(), MainError> {
+    // capture CTRL-C event from the process
+    let running = Arc::new(AtomicBool::new(true));
+    let r = running.clone();
+    ctrlc::set_handler(move || {
+        r.store(false, Ordering::SeqCst);
+    })
+    .expect("Error setting Ctrl-C handler");
+    let mut is_close_sent = false;
+
     //    let url = Url::parse("wss://ws-feed-public.sandbox.pro.coinbase.com").unwrap();
     //    let url = Url::parse("wss://ws-feed.pro.coinbase.com").unwrap();
-
     let address = "ws-feed.pro.coinbase.com:443";
     println!("Connecting to: {}", address);
     println!("Connected.");
@@ -91,9 +102,17 @@ pub fn main() -> Result<(), MainError> {
     )?;
 
     while let Some(s) = websocket.read_text(&mut frame_buf)? {
+        // print the text from the frame
         println!("{}", s);
+
+        // user pressed CTRL-C (initiate a close handshake)
+        if !running.load(Ordering::SeqCst) && !is_close_sent {
+            websocket.close(WebSocketCloseStatusCode::NormalClosure, None)?;
+            println!("Close handshake sent");
+            is_close_sent = true;
+        }
     }
 
-    websocket.close(WebSocketCloseStatusCode::NormalClosure, None)?;
+    println!("Websocket closed");
     return Ok(());
 }
