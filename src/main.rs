@@ -114,5 +114,5 @@ pub fn main() -> Result<(), MainError> {
     }
 
     println!("Websocket closed");
-    return Ok(());
+    Ok(())
 }
