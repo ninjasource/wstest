@@ -1,22 +1,30 @@
-use core::panic;
-use embedded_websocket as ws;
-use embedded_websocket::WebSocketOptions;
-use rand::rngs::ThreadRng;
-
-use std::io::{Read, Write};
+use framer::{Framer, FramerError};
+use embedded_websocket::{WebSocketCloseStatusCode, WebSocketOptions, WebSocketSendMessageType};
 use std::net::TcpStream;
 use thiserror::Error;
-use ws::{WebSocketClient, WebSocketReceiveMessageType, WebSocketSendMessageType};
 
 extern crate native_tls;
-use native_tls::{TlsConnector, TlsStream};
+use native_tls::TlsConnector;
+mod framer;
 
 #[derive(Error, Debug)]
-pub enum Error {
-    #[error("embedded_websocket error: {0:?}")]
-    EmbeddedWebsocket(ws::Error),
-    #[error("payload too large to fit in buffer: {0:?} bytes")]
-    PayloadTooLarge(usize),
+pub enum MainError {
+    #[error("frame reader error: {0:?}")]
+    FrameReader(FramerError),
+    #[error("io error: {0:?}")]
+    Io(std::io::Error),
+}
+
+impl From<FramerError> for MainError {
+    fn from(err: FramerError) -> Self {
+        MainError::FrameReader(err)
+    }
+}
+
+impl From<std::io::Error> for MainError {
+    fn from(err: std::io::Error) -> Self {
+        MainError::Io(err)
+    }
 }
 
 const TEST_SUBSCRIPTION: &'static str = r#"
@@ -39,22 +47,7 @@ const TEST_SUBSCRIPTION: &'static str = r#"
 }
 "#;
 
-fn write_all<T: Write>(stream: &mut T, buffer: &[u8]) -> Result<(), std::io::Error> {
-    let mut from = 0;
-    loop {
-        let bytes_sent = stream.write(&buffer[from..])?;
-        from = from + bytes_sent;
-
-        if from == buffer.len() {
-            break;
-        }
-    }
-
-    stream.flush()?;
-    Ok(())
-}
-
-pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+pub fn main() -> Result<(), MainError> {
     //    let url = Url::parse("wss://ws-feed-public.sandbox.pro.coinbase.com").unwrap();
     //    let url = Url::parse("wss://ws-feed.pro.coinbase.com").unwrap();
 
@@ -69,11 +62,13 @@ pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .connect("ws-feed.pro.coinbase.com", stream)
         .unwrap();
 
-    let mut buf: [u8; 4096] = [0; 4096];
-    // heap allocated memory to store payload for one entire websocket frame
-    let mut output_json = vec![0; 1024 * 1024];
+    let mut read_buf: [u8; 4096] = [0; 4096];
+    let mut write_buf: [u8; 4096] = [0; 4096];
 
-    let mut ws_client = ws::WebSocketClient::new_client(rand::thread_rng());
+    // heap allocated memory to store payload for one entire websocket frame
+    let mut frame_buf = vec![0; 1024 * 1024];
+
+    let mut ws_client = embedded_websocket::WebSocketClient::new_client(rand::thread_rng());
 
     // initiate a websocket opening handshake
     let websocket_options = WebSocketOptions {
@@ -84,140 +79,19 @@ pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         additional_headers: None,
     };
 
-    let (len, web_socket_key) = ws_client
-        .client_connect(&websocket_options, &mut buf)
-        .map_err(Error::EmbeddedWebsocket)?;
-    println!("Sending opening handshake: {} bytes", len);
-    stream.write_all(&buf[..len])?;
+    let mut websocket = Framer::new(&mut read_buf, &mut write_buf, &mut ws_client, &mut stream);
+    websocket.connect(&websocket_options)?;
 
-    // read the response from the server and check it to complete the opening handshake
-    let received_size = stream.read(&mut buf)?;
-    ws_client
-        .client_accept(&web_socket_key, &mut buf[..received_size])
-        .map_err(Error::EmbeddedWebsocket)?;
-    println!("Opening handshake completed successfully");
+    websocket.write(
+        WebSocketSendMessageType::Text,
+        true,
+        &TEST_SUBSCRIPTION.as_bytes(),
+    )?;
 
-    let send_size = ws_client
-        .write(
-            WebSocketSendMessageType::Text,
-            true,
-            &TEST_SUBSCRIPTION.as_bytes(),
-            &mut buf,
-        )
-        .map_err(Error::EmbeddedWebsocket)?;
-
-    println!("Sending {} bytes", send_size);
-    write_all(&mut stream, &buf[..send_size])?;
-    let mut write_cursor = 0;
-
-    loop {
-        // read the response from the server (we expect the server to simply echo the same message back)
-        let received_size = stream.read(&mut buf)?;
-        let mut read_cursor = 0;
-
-        loop {
-            if read_cursor == received_size {
-                break;
-            }
-
-            if write_cursor == output_json.len() {
-                return Err(Error::PayloadTooLarge(output_json.len()))?;
-            }
-
-            let ws_result = ws_client
-                .read(
-                    &buf[read_cursor..received_size],
-                    &mut output_json[write_cursor..],
-                )
-                .unwrap();
-            read_cursor += ws_result.len_from;
-
-            match ws_result.message_type {
-                WebSocketReceiveMessageType::Text => {
-                    write_cursor += ws_result.len_to;
-
-                    if ws_result.end_of_message {
-                        let _s = std::str::from_utf8(&output_json[..write_cursor])?;
-                        println!("{}", _s);
-                        //println!("Text received of {} characters received", s.len());
-                        write_cursor = 0;
-                    }
-                }
-                x => println!("Enexpected {:?} message type received", x),
-            }
-        }
+    while let Some(s) = websocket.read_text(&mut frame_buf)? {
+        println!("{}", s);
     }
+
+    websocket.close(WebSocketCloseStatusCode::NormalClosure, None)?;
+    return Ok(());
 }
-
-/*
-struct FrameReader {
-    write_cursor: usize,
-    read_cursor: usize,
-    stream: TlsStream<TcpStream>,
-    ws_client: WebSocketClient<ThreadRng>,
-    buf: [u8; 4096],
-    frame_payload: Vec<u8>,
-}
-
-impl FrameReader {
-    fn new(
-        stream: TlsStream<TcpStream>,
-        ws_client: WebSocketClient<ThreadRng>,
-        frame_payload_len: usize,
-    ) -> Self {
-        Self {
-            write_cursor: 0,
-            read_cursor: 0,
-            stream,
-            ws_client,
-            buf: [0; 4096],
-            frame_payload: vec![0; frame_payload_len],
-        }
-    }
-}
-
-impl<'a> Iterator for FrameReader {
-    type Item = &'a [u8];
-
-    fn next(&mut self) -> Option<&'a [u8]> {
-        loop {
-            let received_size = self.stream.read(&mut self.buf).unwrap();
-            self.read_cursor = 0;
-
-            loop {
-                if self.read_cursor == received_size {
-                    break;
-                }
-
-                if self.write_cursor == self.frame_payload.len() {
-                    panic!("payload too large");
-                }
-
-                let ws_result = self
-                    .ws_client
-                    .read(
-                        &self.buf[self.read_cursor..received_size],
-                        &mut self.frame_payload[self.write_cursor..],
-                    )
-                    .unwrap();
-                self.read_cursor += ws_result.len_from;
-
-                match ws_result.message_type {
-                    WebSocketReceiveMessageType::Text => {
-                        self.write_cursor += ws_result.len_to;
-
-                        if ws_result.end_of_message {
-                            let slice = &self.frame_payload[..self.write_cursor];
-                            self.write_cursor = 0;
-                            return Some(slice);
-                        }
-                    }
-                    WebSocketReceiveMessageType::CloseCompleted => return None,
-                    WebSocketReceiveMessageType::CloseMustReply => return None,
-                    x => println!("Enexpected {:?} message type received", x),
-                }
-            }
-        }
-    }
-}
-*/

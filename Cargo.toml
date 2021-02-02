@@ -5,8 +5,9 @@ authors = ["David Haig <david@ninjametal.com>"]
 edition = "2018"
 
 [dependencies]
-embedded-websocket = "0.3.2"
-rand = "0.7.3"
+embedded-websocket = "0.4"
+rand = "0.8.3"
 thiserror = "1.0.19"
 native-tls = "0.2"
-rand_core = "0.6.1"
+byteorder = { version = "1.3", default-features = false }
+rand_core = "0.6"
